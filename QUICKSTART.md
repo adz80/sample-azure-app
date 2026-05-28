@@ -12,63 +12,56 @@ Deploy this app to Azure and demo Cloudflare SSL for SaaS in under 10 minutes.
 
 ---
 
-## 🚀 Deploy in 3 Steps
+## 🚀 Deploy in 2 Steps
 
-### Step 1: Create Azure App Service (2 min)
+### Step 1: Open Azure Cloud Shell
 
-**Option A - Azure Portal:**
-1. Go to https://portal.azure.com
-2. Create Resource → Web App
-3. Name: `ssl-saas-demo-[your-name]`
-4. Runtime: Node 18 LTS
-5. Create
+Go to https://shell.azure.com (or click the shell icon in Azure Portal)
 
-**Option B - Azure CLI:**
 ```bash
-az login
-az group create --name ssl-saas-rg --location eastus
-az webapp create --name ssl-saas-demo-[your-name] \
-  --resource-group ssl-saas-rg \
-  --runtime "NODE:18-lts" \
-  --sku B1
+# Check your subscription
+az account show --query "{Name:name, ID:id}" --output table
+
+# (Optional) Switch subscription if needed
+# az account set --subscription "your-subscription-name"
 ```
 
 ---
 
-### Step 2: Enable Git Deployment (2 min)
+### Step 2: Clone and Deploy
 
-**In Azure Portal:**
-1. Go to your App Service
-2. Deployment Center → Local Git → Save
-3. Copy the Git URL
-4. Set deployment credentials (username/password)
-
-**Or via CLI:**
 ```bash
-az webapp deployment source config-local-git \
+# Clone the repo
+git clone https://github.com/adz80/sample-azure-app.git
+cd sample-azure-app
+
+# Deploy with one command (change app name to be unique)
+az webapp up \
   --name ssl-saas-demo-[your-name] \
-  --resource-group ssl-saas-rg
+  --runtime "NODE:24-lts" \
+  --sku B1 \
+  --location westus
 
-az webapp deployment user set \
-  --user-name deployuser \
-  --password YourPassword123!
+# Done! Wait 2-3 minutes for deployment
 ```
+
+**Note**: If you get a quota error, try different regions:
+- `--location westeurope`
+- `--location australiaeast`
+- `--location southeastasia`
+
+**Your app will be at**: `https://ssl-saas-demo-[your-name].azurewebsites.net`
 
 ---
 
-### Step 3: Deploy (1 min)
+## 🔄 Update Your App (After Changes)
 
 ```bash
-# Add Azure remote (use your Git URL from Step 2)
-git remote add azure https://ssl-saas-demo-[your-name].scm.azurewebsites.net/ssl-saas-demo-[your-name].git
-
-# Push to deploy
-git push azure main
-
-# Enter deployment credentials when prompted
+# In Azure Cloud Shell
+cd sample-azure-app
+git pull
+az webapp up
 ```
-
-**Done!** Visit: `https://ssl-saas-demo-[your-name].azurewebsites.net`
 
 ---
 
@@ -121,19 +114,19 @@ Visit `https://demo.yourdomain.com` - you'll now see:
 ## 📱 Quick Commands
 
 ```bash
-# View logs
-az webapp log tail --name ssl-saas-demo-[your-name] --resource-group ssl-saas-rg
+# View logs (replace with your app name and resource group)
+az webapp log tail --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
 
 # Restart app
-az webapp restart --name ssl-saas-demo-[your-name] --resource-group ssl-saas-rg
+az webapp restart --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
 
-# Update app
-git add .
-git commit -m "Update"
-git push azure main
+# Update app (in Cloud Shell)
+cd sample-azure-app
+git pull
+az webapp up
 
 # Delete everything (cleanup)
-az group delete --name ssl-saas-rg --yes
+az group delete --name [auto-generated-rg] --yes
 ```
 
 ---
@@ -142,12 +135,12 @@ az group delete --name ssl-saas-rg --yes
 
 **App won't start?**
 ```bash
-az webapp log tail --name ssl-saas-demo-[your-name] --resource-group ssl-saas-rg
+az webapp log tail --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
 ```
 
-**Git push fails?**
-- Check deployment credentials
-- Use deployment username (not Azure email)
+**Quota error during deployment?**
+- Try different regions: `--location westeurope` or `--location australiaeast`
+- Or request quota increase in Azure Portal
 
 **No Cloudflare headers?**
 - You're accessing directly (not through Cloudflare)
@@ -172,8 +165,9 @@ az webapp log tail --name ssl-saas-demo-[your-name] --resource-group ssl-saas-rg
 
 ## ✅ Checklist
 
-- [ ] Azure App Service created
-- [ ] Git deployment configured
+- [ ] Opened Azure Cloud Shell
+- [ ] Cloned GitHub repo
+- [ ] Ran `az webapp up` command
 - [ ] App deployed and running
 - [ ] Tested direct access
 - [ ] Cloudflare custom hostname added
