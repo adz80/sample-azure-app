@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSL for SaaS Demo - Request Inspector</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 SSL for SaaS Demo</h1>
+            <p class="subtitle">Request Inspector - HTTP Headers, TLS Info & SNI</p>
+            <button id="refreshBtn" class="btn-refresh">🔄 Refresh</button>
+        </header>
+
+        <div id="loading" class="loading">Loading request information...</div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="content" style="display: none;">
+            <section class="card">
+                <h2>📡 Connection Information</h2>
+                <div id="connectionInfo" class="info-grid"></div>
+            </section>
+
+            <section class="card">
+                <h2>🔐 TLS & Certificate Information</h2>
+                <div id="tlsInfo" class="info-grid"></div>
+                <div class="info-note">
+                    <strong>Note:</strong> Azure App Service terminates TLS at the load balancer. 
+                    TLS information is reconstructed from headers provided by Cloudflare and Azure.
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>☁️ Cloudflare Headers</h2>
+                <div id="cloudflareHeaders" class="headers-list"></div>
+            </section>
+
+            <section class="card">
+                <h2>🔀 Forwarded Headers</h2>
+                <div id="forwardedHeaders" class="headers-list"></div>
+            </section>
+
+            <section class="card">
+                <h2>🌐 Azure Headers</h2>
+                <div id="azureHeaders" class="headers-list"></div>
+            </section>
+
+            <section class="card">
+                <h2>📋 Standard HTTP Headers</h2>
+                <div id="standardHeaders" class="headers-list"></div>
+            </section>
+
+            <section class="card">
+                <h2>📦 All Headers (Raw)</h2>
+                <button id="copyBtn" class="btn-copy">📋 Copy to Clipboard</button>
+                <pre id="allHeaders" class="raw-data"></pre>
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <p>Cloudflare SSL for SaaS Demo Application | Azure App Service</p>
+    </footer>
+
+    <script>
+        let currentData = null;
+
+        function formatValue(value) {
+            if (typeof value === 'object') {
+                return JSON.stringify(value, null, 2);
+            }
+            return value;
+        }
+
+        function createInfoRow(key, value) {
+            return `
+                <div class="info-row">
+                    <span class="info-key">${key}:</span>
+                    <span class="info-value">${formatValue(value)}</span>
+                </div>
+            `;
+        }
+
+        function createHeaderRow(key, value) {
+            return `
+                <div class="header-row">
+                    <span class="header-key">${key}</span>
+                    <span class="header-value">${formatValue(value)}</span>
+                </div>
+            `;
+        }
+
+        function displayData(data) {
+            currentData = data;
+
+            document.getElementById('connectionInfo').innerHTML = Object.entries(data.connection)
+                .map(([key, value]) => createInfoRow(key, value))
+                .join('');
+
+            document.getElementById('tlsInfo').innerHTML = Object.entries(data.tls)
+                .map(([key, value]) => createInfoRow(key, value))
+                .join('');
+
+            const cfHeaders = data.headers.cloudflare;
+            if (Object.keys(cfHeaders).length > 0) {
+                document.getElementById('cloudflareHeaders').innerHTML = Object.entries(cfHeaders)
+                    .map(([key, value]) => createHeaderRow(key, value))
+                    .join('');
+            } else {
+                document.getElementById('cloudflareHeaders').innerHTML = '<p class="no-data">No Cloudflare headers detected. This request may not be proxied through Cloudflare.</p>';
+            }
+
+            const fwdHeaders = data.headers.forwarded;
+            if (Object.keys(fwdHeaders).length > 0) {
+                document.getElementById('forwardedHeaders').innerHTML = Object.entries(fwdHeaders)
+                    .map(([key, value]) => createHeaderRow(key, value))
+                    .join('');
+            } else {
+                document.getElementById('forwardedHeaders').innerHTML = '<p class="no-data">No forwarded headers detected.</p>';
+            }
+
+            const azureHeaders = data.headers.azure;
+            if (Object.keys(azureHeaders).length > 0) {
+                document.getElementById('azureHeaders').innerHTML = Object.entries(azureHeaders)
+                    .map(([key, value]) => createHeaderRow(key, value))
+                    .join('');
+            } else {
+                document.getElementById('azureHeaders').innerHTML = '<p class="no-data">No Azure-specific headers detected.</p>';
+            }
+
+            document.getElementById('standardHeaders').innerHTML = Object.entries(data.headers.standard)
+                .map(([key, value]) => createHeaderRow(key, value))
+                .join('');
+
+            document.getElementById('allHeaders').textContent = JSON.stringify(data, null, 2);
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = `Error: ${message}`;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        async function fetchData() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('content').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/info');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                displayData(data);
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        document.getElementById('refreshBtn').addEventListener('click', fetchData);
+
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const text = document.getElementById('allHeaders').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy: ' + err.message);
+            });
+        });
+
+        fetchData();
+    </script>
+</body>
+</html>
