@@ -106,40 +106,77 @@ Open your browser to `http://localhost:8080`
 
 ## ☁️ Cloudflare SSL for SaaS Setup
 
-### 1. Add Custom Hostname in Cloudflare
+This demo shows how to use Cloudflare SSL for SaaS to provide custom domains for your customers.
+
+**Example domains used**:
+- Azure custom domain: `ssl4sass-azure.chewbacca.dev`
+- SSL for SaaS customer domain: `school1.chewbacca.dev`
+
+### 1. Add Azure Custom Domain (Optional but Recommended)
+
+First, add a custom domain directly to Azure for testing:
+
+**Configure DNS**:
+```
+CNAME: ssl4sass-azure.chewbacca.dev → ssl-saas-demo-aboyce.azurewebsites.net
+```
+
+**Add to Azure**:
+1. Go to Azure Portal → Your App Service → **Custom domains**
+2. Click **+ Add custom domain**
+3. Enter `ssl4sass-azure.chewbacca.dev` (or your domain)
+4. Click **Validate** (Azure will verify the CNAME)
+5. Once validated, click **Add**
+6. Wait 1-2 minutes for domain to be added
+
+### 2. Add SSL for SaaS Custom Hostname in Cloudflare
+
+Add a customer domain through Cloudflare SSL for SaaS:
 
 1. Go to Cloudflare Dashboard → **SSL/TLS** → **Custom Hostnames**
 2. Click **Add Custom Hostname**
-3. Enter customer domain (e.g., `customer.example.com`)
-4. Choose SSL certificate option
+3. Enter customer domain: `school1.chewbacca.dev`
+4. Choose SSL certificate option (e.g., **Let's Encrypt**)
 5. Click **Add**
+6. Wait for certificate to be issued (~1-2 minutes)
 
-### 2. Add Custom Domain in Azure
+### 3. Configure DNS for SSL for SaaS Domain
 
-1. Go to Azure App Service → **Custom domains**
-2. Click **Add custom domain**
-3. Enter the same domain from Cloudflare
-4. Follow verification steps
-5. Enable **HTTPS**
+Create a CNAME record for the customer domain:
 
-### 3. Configure DNS
+```
+CNAME: school1.chewbacca.dev → ssl-saas-demo-aboyce.azurewebsites.net
+```
 
-Point your custom domain to Azure:
-- **CNAME**: `customer.example.com` → `ssl-saas-demo-[your-name].azurewebsites.net`
+Enable Cloudflare proxy (orange cloud) in DNS settings for automatic SSL.
 
-Or use Cloudflare proxy:
-- Enable orange cloud in Cloudflare DNS
+### 4. Add SSL for SaaS Domain to Azure
 
-### 4. Test the Demo
+Add the customer domain to Azure:
+
+1. Go to Azure Portal → Your App Service → **Custom domains**
+2. Click **+ Add custom domain**
+3. Enter `school1.chewbacca.dev`
+4. Click **Validate**
+5. Once validated, click **Add**
+6. **Do NOT add SSL binding** - Cloudflare handles SSL
+
+### 5. Test the Demo
 
 **Direct Access** (no Cloudflare):
-- Visit `https://ssl-saas-demo-[your-name].azurewebsites.net`
+- Visit `https://ssl-saas-demo-aboyce.azurewebsites.net`
 - You'll see Azure headers but no Cloudflare headers
 
-**Through Cloudflare**:
-- Visit `https://customer.example.com`
+**Azure Custom Domain**:
+- Visit `https://ssl4sass-azure.chewbacca.dev`
+- You'll see Azure headers and possibly Cloudflare headers
+- SNI will show `ssl4sass-azure.chewbacca.dev`
+
+**SSL for SaaS Domain** (through Cloudflare):
+- Visit `https://school1.chewbacca.dev`
 - You'll see Cloudflare headers: `CF-Ray`, `CF-Connecting-IP`, `CF-SSL-Protocol`, etc.
-- SNI will show `customer.example.com`
+- SNI will show `school1.chewbacca.dev`
+- This demonstrates multi-tenant SSL!
 
 ---
 
@@ -162,7 +199,7 @@ Or use Cloudflare proxy:
 | `x-arr-log-id` | Azure request log ID | `abc123-def456` |
 | `x-arr-ssl` | SSL/TLS information | `2048\|256\|C=US...` |
 | `x-arr-clientcert` | Client certificate (if mTLS) | Base64 encoded cert |
-| `disguised-host` | Original host before routing | `customer.example.com` |
+| `disguised-host` | Original host before routing | `school1.chewbacca.dev` |
 
 ### TLS Information Sources
 
@@ -178,32 +215,45 @@ Or use Cloudflare proxy:
 ### What to Show
 
 **1. Direct Access**
-- Open `https://ssl-saas-demo-[your-name].azurewebsites.net`
+- Open `https://ssl-saas-demo-aboyce.azurewebsites.net`
 - Point out: "No Cloudflare headers - direct to Azure"
 - Show: TLS cipher is "N/A"
 
-**2. Through Cloudflare**
-- Open your custom domain
-- Point out: "Now we see CF-* headers!"
-- Show: TLS protocol and cipher now visible
+**2. Azure Custom Domain**
+- Open `https://ssl4sass-azure.chewbacca.dev`
+- Point out: "Custom domain on Azure"
+- Show: SNI changes to custom domain
 
-**3. SNI Changes**
-- Open different custom domains
+**3. SSL for SaaS Domain**
+- Open `https://school1.chewbacca.dev`
+- Point out: "Now we see CF-* headers through Cloudflare!"
+- Show: TLS protocol and cipher now visible
+- Demonstrate: "This is a customer's domain with SSL"
+
+**4. Multiple Domains**
+- Open different SSL for SaaS domains (e.g., `school2.chewbacca.dev`)
 - Show: SNI changes for each domain
-- Demonstrate: "One app, many customer domains"
+- Demonstrate: "One app, many customer domains with individual SSL"
 
 ### Expected Output
 
-**Direct Access**:
+**Direct Access** (`ssl-saas-demo-aboyce.azurewebsites.net`):
 - ✅ Azure headers
 - ❌ No Cloudflare headers
-- SNI = `ssl-saas-demo-[your-name].azurewebsites.net`
+- SNI = `ssl-saas-demo-aboyce.azurewebsites.net`
+- TLS cipher = "N/A"
 
-**Through Cloudflare**:
+**Azure Custom Domain** (`ssl4sass-azure.chewbacca.dev`):
 - ✅ Azure headers
-- ✅ Cloudflare headers
+- ⚠️ May have Cloudflare headers if proxied
+- SNI = `ssl4sass-azure.chewbacca.dev`
+
+**SSL for SaaS Domain** (`school1.chewbacca.dev`):
+- ✅ Azure headers
+- ✅ Cloudflare headers (CF-Ray, CF-SSL-Protocol, etc.)
 - ✅ TLS cipher visible
-- SNI = `customer.example.com`
+- SNI = `school1.chewbacca.dev`
+- ⭐ This demonstrates multi-tenant SSL!
 
 ---
 
